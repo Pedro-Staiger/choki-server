@@ -22,6 +22,10 @@ app.use(express.json());
 
 app.use(cors());
 
+
+//=============================================================================================================================
+
+
 // == Início das rotas HTTP == \\
 
 // - Rota de boas vindas
@@ -33,6 +37,10 @@ app.get("/", async (req, res) => {
         res.status(500).json({ erro: error });
     }
 })
+
+
+//=============================================================================================================================
+
 
 // - Rotas do usuário
 // - Cria usuário
@@ -203,6 +211,101 @@ app.delete("/api/usuario/:id", async (req, res) => {
 });
 
 
+//=============================================================================================================================
+
+
+// - Rotas de cômodo
+// - Cria cômodo
+app.post("/api/comodo", async (req, res) => {
+    try {
+        const { id_usuario, nome, descricao } = req.body;
+
+        const { data, error } = await supabase
+            .from('comodo')
+            .insert({
+                id_usuario: id_usuario,
+                nome: nome,
+                descricao: descricao,
+            })
+            .select()
+            .single();
+
+        if (error) return res.status(500).json({ erro: error.message });
+
+        res.status(201).json(data);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ erro: "Falha ao criar cômodo" });
+    }
+});
+
+// - Busca todos cômodos de um usuário
+app.get("/api/comodo/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const { data, error } = await supabase
+            .from('comodo')
+            .select('*')
+            .eq('id_usuario', id)
+
+        if (error) return res.status(404).json({ erro: "Cômodo(s) não encontrado(s)" });
+
+        res.status(200).json(data);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ erro: "Falha ao buscar cômodo(s)" });
+    }
+});
+
+// - Atualiza cômodo
+app.put("/api/comodo/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const { nome, descricao } = req.body;
+
+        const { data, error } = await supabase
+            .from('comodo')
+            .update({
+                nome: nome,
+                descricao: descricao
+            })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) return res.status(500).json({ erro: error.message });
+
+        res.status(200).json(data);
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ erro: "Falha ao atualizar cômodo" });
+    }
+});
+
+// - Deleta cômodo
+app.delete("/api/comodo/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const { error } = await supabase
+            .from('comodo')
+            .delete()
+            .eq('id', id);
+
+        if (error) return res.status(500).json({ erro: error.message });
+
+        res.status(204).send();
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ erro: "Falha ao deletar cômodo" });
+    }
+});
+
+
+//=============================================================================================================================
+
 
 // - Rotas do aparelho
 // - Cria aparelho
@@ -255,7 +358,7 @@ app.put("/api/aparelho/:id", async (req, res) => {
     try {
         const { id } = req.params;
 
-        const { nome, descricao, horas_uso_dia, dias_uso_mes } = req.body;
+        const { nome, descricao, horas_uso_dia, dias_uso_mes, id_comodo  } = req.body;
 
         const { data, error } = await supabase
             .from('aparelho')
@@ -263,7 +366,8 @@ app.put("/api/aparelho/:id", async (req, res) => {
                 nome: nome,
                 descricao: descricao,
                 horas_uso_dia: horas_uso_dia,
-                dias_uso_mes: dias_uso_mes
+                dias_uso_mes: dias_uso_mes,
+                id_comodo: id_comodo
             })
             .eq('id', id)
             .select()
@@ -296,6 +400,9 @@ app.delete("/api/aparelho/:id", async (req, res) => {
         res.status(500).json({ erro: "Falha ao deletar aparelho" });
     }
 });
+
+
+//=============================================================================================================================
 
 
 // - Rotas da leitura
@@ -431,6 +538,8 @@ app.delete("/api/leitura/:id", async (req, res) => {
     }
 });
 
+
+//=============================================================================================================================
 
 
 //== Inicialização ==\\
