@@ -22,6 +22,9 @@ app.use(express.json());
 
 app.use(cors());
 
+import multer from "multer";
+const upload = multer({ storage: multer.memoryStorage() });
+
 
 //=============================================================================================================================
 
@@ -46,7 +49,7 @@ app.get("/", async (req, res) => {
 // - Cria usuário
 app.post("/api/usuario", async (req, res) => {
     try {
-        const { email, username, password, tarifa_eletrica, categoria, nivel_consumo } = req.body;
+        const { email, username, password } = req.body;
 
         const passwordhash = await bcryptjs.hash(password, 10);
 
@@ -55,10 +58,7 @@ app.post("/api/usuario", async (req, res) => {
             .insert({
                 email: email,
                 username: username,
-                password: passwordhash,
-                tarifa_eletrica: tarifa_eletrica,
-                categoria: categoria,
-                nivel_consumo: nivel_consumo
+                password: passwordhash
             })
             .select()
             .single();
@@ -535,6 +535,113 @@ app.delete("/api/leitura/:id", async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ erro: "Falha ao deletar leitura" });
+    }
+});
+
+
+//=============================================================================================================================
+
+
+// - Rotas de upload
+// - Uploado do usuário
+app.post("/api/upload/usuario/:id", upload.single("foto"), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const arquivo = req.file;
+
+        if (!arquivo) return res.status(400).json({ erro: "Nenhuma foto enviada" });
+
+        const nomeArquivo = `usuarios/${id}-${Date.now()}`;
+
+        const { error: uploadError } = await supabase.storage
+            .from("fotos")
+            .upload(nomeArquivo, arquivo.buffer, {
+                contentType: arquivo.mimetype
+            });
+
+        if (uploadError) return res.status(500).json({ erro: uploadError.message });
+
+        const { data } = supabase.storage
+            .from("fotos")
+            .getPublicUrl(nomeArquivo);
+
+        await supabase
+            .from("usuario")
+            .update({ foto_url: data.publicUrl })
+            .eq("id", id);
+
+        res.status(200).json({ foto_url: data.publicUrl });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ erro: "Falha ao fazer upload" });
+    }
+});
+
+// - Upload do cômodo
+app.post("/api/upload/comodo/:id", upload.single("foto"), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const arquivo = req.file;
+
+        if (!arquivo) return res.status(400).json({ erro: "Nenhuma foto enviada" });
+
+        const nomeArquivo = `comodos/${id}-${Date.now()}`;
+
+        const { error: uploadError } = await supabase.storage
+            .from("fotos")
+            .upload(nomeArquivo, arquivo.buffer, {
+                contentType: arquivo.mimetype
+            });
+
+        if (uploadError) return res.status(500).json({ erro: uploadError.message });
+
+        const { data } = supabase.storage
+            .from("fotos")
+            .getPublicUrl(nomeArquivo);
+
+        await supabase
+            .from("comodo")
+            .update({ foto_url: data.publicUrl })
+            .eq("id", id);
+
+        res.status(200).json({ foto_url: data.publicUrl });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ erro: "Falha ao fazer upload" });
+    }
+});
+
+// - Upload do aparelho
+app.post("/api/upload/aparelho/:id", upload.single("foto"), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const arquivo = req.file;
+
+        if (!arquivo) return res.status(400).json({ erro: "Nenhuma foto enviada" });
+
+        const nomeArquivo = `aparelhos/${id}-${Date.now()}`;
+
+        const { error: uploadError } = await supabase.storage
+            .from("fotos")
+            .upload(nomeArquivo, arquivo.buffer, {
+                contentType: arquivo.mimetype
+            });
+
+        if (uploadError) return res.status(500).json({ erro: uploadError.message });
+
+        const { data } = supabase.storage
+            .from("fotos")
+            .getPublicUrl(nomeArquivo);
+
+        await supabase
+            .from("aparelho")
+            .update({ foto_url: data.publicUrl })
+            .eq("id", id);
+
+        res.status(200).json({ foto_url: data.publicUrl });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ erro: "Falha ao fazer upload" });
     }
 });
 
