@@ -131,22 +131,16 @@ app.put("/api/usuario/:id", async (req, res) => {
     try {
         const { id } = req.params;
 
-        const { email, username, password, tarifa_eletrica, categoria, nivel_consumo } = req.body;
-
-        let passwordhash;
-        if (password) {
-            passwordhash = await bcryptjs.hash(password, 10);
-        }
+        const { email, username, meta_diaria_kwh, meta_mensal_reais, tarifa_eletrica } = req.body;
 
         const { data, error } = await supabase
             .from('usuario')
             .update({
                 email: email,
                 username: username,
-                ...(passwordhash && { password: passwordhash }),
-                tarifa_eletrica: tarifa_eletrica,
-                categoria: categoria,
-                nivel_consumo: nivel_consumo
+                meta_diaria_kwh: meta_diaria_kwh,
+                meta_mensal_reais: meta_mensal_reais,
+                tarifa_eletrica: tarifa_eletrica
             })
             .eq('id', id)
             .select()
