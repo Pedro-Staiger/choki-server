@@ -9,6 +9,10 @@ import express from "express";
 import bcryptjs from "bcryptjs";
 import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
+import multer from "multer";
+import jwt from "jsonwebtoken";
+
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Conecta ao Supabase
 const supabase = createClient(
@@ -22,8 +26,19 @@ app.use(express.json());
 
 app.use(cors());
 
-import multer from "multer";
-const upload = multer({ storage: multer.memoryStorage() });
+const autenticar = (req, res, next) => {
+    const token = req.headers.authorization?.split(" ")[1];
+
+    if (!token) return res.status(401).json({ erro: "Token não fornecido" });
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        req.usuarioId = decoded.id;
+        next();
+    } catch {
+        res.status(401).json({ erro: "Token inválido" });
+    }
+};
 
 
 //=============================================================================================================================
@@ -73,7 +88,7 @@ app.post("/api/usuario", async (req, res) => {
 });
 
 // - Consulta usuário específico
-app.get("/api/usuario/:id", async (req, res) => {
+app.get("/api/auth/usuario/:id", autenticar, async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -117,9 +132,9 @@ app.post("/api/login", async (req, res) => {
             return res.status(401).json({ erro: "Informações inválidas" });
         }
 
-        const { password: _, ...dadosLogin } = data;
+        const token = jwt.sign({ id: data.id }, process.env.JWT_SECRET, { expiresIn: "7d" });
 
-        res.status(200).json(dadosLogin);
+        res.status(200).json({ id: data.id, token });
     } catch (error) {
         console.error(error);
         res.status(500).json({ erro: "Falha ao realizar login" });
@@ -127,26 +142,20 @@ app.post("/api/login", async (req, res) => {
 });
 
 // - Atualiza usuário
-app.put("/api/usuario/:id", async (req, res) => {
+app.put("/api/auth/usuario/:id", autenticar, async (req, res) => {
     try {
         const { id } = req.params;
 
-        const { email, username, password, tarifa_eletrica, categoria, nivel_consumo } = req.body;
-
-        let passwordhash;
-        if (password) {
-            passwordhash = await bcryptjs.hash(password, 10);
-        }
+        const { email, username, meta_diaria_kwh, meta_mensal_reais, tarifa_eletrica } = req.body;
 
         const { data, error } = await supabase
             .from('usuario')
             .update({
                 email: email,
                 username: username,
-                ...(passwordhash && { password: passwordhash }),
-                tarifa_eletrica: tarifa_eletrica,
-                categoria: categoria,
-                nivel_consumo: nivel_consumo
+                meta_diaria_kwh: meta_diaria_kwh,
+                meta_mensal_reais: meta_mensal_reais,
+                tarifa_eletrica: tarifa_eletrica
             })
             .eq('id', id)
             .select()
@@ -154,7 +163,8 @@ app.put("/api/usuario/:id", async (req, res) => {
 
         if (error) return res.status(500).json({ erro: error.message });
 
-        res.status(200).json(data);
+        const { password: _, ...dadosAtualizados } = data;
+        res.status(200).json(dadosAtualizados);
     } catch (error) {
         console.log(error);
         res.status(500).json({ erro: "Falha ao atualizar usuário" });
@@ -162,7 +172,7 @@ app.put("/api/usuario/:id", async (req, res) => {
 });
 
 // - Altera o status do usuário
-app.put("/api/statusUsuario/:id", async (req, res) => {
+app.put("/api/auth/statusUsuario/:id", autenticar, async (req, res) => {
     try {
         const { id } = req.params;
         const { data, error } = await supabase
@@ -192,7 +202,7 @@ app.put("/api/statusUsuario/:id", async (req, res) => {
 });
 
 // - Deleta usuário
-app.delete("/api/usuario/:id", async (req, res) => {
+app.delete("/api/auth/usuario/:id", autenticar, async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -216,7 +226,7 @@ app.delete("/api/usuario/:id", async (req, res) => {
 
 // - Rotas de cômodo
 // - Cria cômodo
-app.post("/api/comodo", async (req, res) => {
+app.post("/api/auth/comodo", autenticar, async (req, res) => {
     try {
         const { id_usuario, nome, descricao } = req.body;
 
@@ -240,7 +250,7 @@ app.post("/api/comodo", async (req, res) => {
 });
 
 // - Busca todos cômodos de um usuário
-app.get("/api/comodo/:id", async (req, res) => {
+app.get("/api/auth/comodo/:id", autenticar, async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -259,7 +269,7 @@ app.get("/api/comodo/:id", async (req, res) => {
 });
 
 // - Atualiza cômodo
-app.put("/api/comodo/:id", async (req, res) => {
+app.put("/api/auth/comodo/:id", autenticar, async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -285,7 +295,7 @@ app.put("/api/comodo/:id", async (req, res) => {
 });
 
 // - Deleta cômodo
-app.delete("/api/comodo/:id", async (req, res) => {
+app.delete("/api/auth/comodo/:id", autenticar, async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -309,7 +319,7 @@ app.delete("/api/comodo/:id", async (req, res) => {
 
 // - Rotas do aparelho
 // - Cria aparelho
-app.post("/api/aparelho", async (req, res) => {
+app.post("/api/auth/aparelho", autenticar, async (req, res) => {
     try {
         const { id_usuario, nome, descricao, horas_uso_dia, dias_uso_mes } = req.body;
 
@@ -335,7 +345,7 @@ app.post("/api/aparelho", async (req, res) => {
 });
 
 // - Busca todos aparelhos de um usuário
-app.get("/api/aparelho/:id", async (req, res) => {
+app.get("/api/auth/aparelho/:id", autenticar, async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -354,11 +364,11 @@ app.get("/api/aparelho/:id", async (req, res) => {
 });
 
 // - Atualiza aparelho
-app.put("/api/aparelho/:id", async (req, res) => {
+app.put("/api/auth/aparelho/:id", autenticar, async (req, res) => {
     try {
         const { id } = req.params;
 
-        const { nome, descricao, horas_uso_dia, dias_uso_mes, id_comodo  } = req.body;
+        const { nome, descricao, horas_uso_dia, dias_uso_mes, id_comodo } = req.body;
 
         const { data, error } = await supabase
             .from('aparelho')
@@ -383,7 +393,7 @@ app.put("/api/aparelho/:id", async (req, res) => {
 });
 
 // - Deleta aparelho
-app.delete("/api/aparelho/:id", async (req, res) => {
+app.delete("/api/auth/aparelho/:id", autenticar, async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -433,7 +443,7 @@ app.post("/api/leitura", async (req, res) => {
 });
 
 // - Busca todas leituras de um aparelho
-app.get("/api/leitura/:id", async (req, res) => {
+app.get("/api/auth/leitura/:id", autenticar, async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -452,7 +462,7 @@ app.get("/api/leitura/:id", async (req, res) => {
 });
 
 // - Busca todas leituras de um aparelho (mais recente)
-app.get("/api/leitura/:id/agora", async (req, res) => {
+app.get("/api/auth/leitura/:id/agora", autenticar, async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -474,7 +484,7 @@ app.get("/api/leitura/:id/agora", async (req, res) => {
 });
 
 // - Busca todas leituras de um aparelho das últimas 24h 
-app.get("/api/leitura/:id/hoje", async (req, res) => {
+app.get("/api/auth/leitura/:id/hoje", autenticar, async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -497,7 +507,7 @@ app.get("/api/leitura/:id/hoje", async (req, res) => {
 });
 
 // - Busca todas leituras de um aparelho dos últimos 30 dias
-app.get("/api/leitura/:id/mensal", async (req, res) => {
+app.get("/api/auth/leitura/:id/mensal", autenticar, async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -520,7 +530,7 @@ app.get("/api/leitura/:id/mensal", async (req, res) => {
 });
 
 // - Deleta leitura
-app.delete("/api/leitura/:id", async (req, res) => {
+app.delete("/api/auth/leitura/:id", autenticar, async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -542,9 +552,9 @@ app.delete("/api/leitura/:id", async (req, res) => {
 //=============================================================================================================================
 
 
-// - Rotas de upload
+// - Rotas de upload (fotos)
 // - Uploado do usuário
-app.post("/api/upload/usuario/:id", upload.single("foto"), async (req, res) => {
+app.post("/api/auth/upload/usuario/:id", autenticar, upload.single("foto"), async (req, res) => {
     try {
         const { id } = req.params;
         const arquivo = req.file;
@@ -578,7 +588,7 @@ app.post("/api/upload/usuario/:id", upload.single("foto"), async (req, res) => {
 });
 
 // - Upload do cômodo
-app.post("/api/upload/comodo/:id", upload.single("foto"), async (req, res) => {
+app.post("/api/auth/upload/comodo/:id", autenticar, upload.single("foto"), async (req, res) => {
     try {
         const { id } = req.params;
         const arquivo = req.file;
@@ -612,7 +622,7 @@ app.post("/api/upload/comodo/:id", upload.single("foto"), async (req, res) => {
 });
 
 // - Upload do aparelho
-app.post("/api/upload/aparelho/:id", upload.single("foto"), async (req, res) => {
+app.post("/api/auth/upload/aparelho/:id", autenticar, upload.single("foto"), async (req, res) => {
     try {
         const { id } = req.params;
         const arquivo = req.file;
